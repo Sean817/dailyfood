@@ -11,7 +11,10 @@ COPY package*.json ./
 RUN npm ci
 
 # 复制源代码
-COPY . .
+COPY src ./src
+COPY index.html ./
+COPY vite.config.ts tsconfig.json tsconfig.node.json ./
+COPY tailwind.config.js postcss.config.js ./
 
 # 构建应用
 RUN npm run build
@@ -23,7 +26,7 @@ FROM nginx:alpine
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 # 复制 nginx 配置文件
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
 
 # 暴露端口
 EXPOSE 80

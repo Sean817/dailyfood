@@ -66,10 +66,34 @@ npm run preview
 
 ## Docker 部署
 
+### 使用 Docker Compose（推荐）
+
+1. 在项目根目录执行：
+```bash
+cd docker
+docker-compose up -d
+```
+
+2. 查看日志：
+```bash
+docker-compose logs -f
+```
+
+3. 停止服务：
+```bash
+docker-compose down
+```
+
+4. 访问应用：
+打开浏览器访问 `http://localhost:8080`
+
 ### 使用 Dockerfile 构建
+
+**重要**: 必须在项目根目录执行构建命令！
 
 1. 构建 Docker 镜像：
 ```bash
+# 在项目根目录执行
 docker build -f docker/Dockerfile -t dailyfood:latest .
 ```
 
@@ -79,31 +103,6 @@ docker run -d -p 8080:80 --name dailyfood-app dailyfood:latest
 ```
 
 3. 访问应用：
-打开浏览器访问 `http://localhost:8080`
-
-### 使用 Docker Compose
-
-1. 进入 docker 目录：
-```bash
-cd docker
-```
-
-2. 启动服务：
-```bash
-docker-compose up -d
-```
-
-3. 查看日志：
-```bash
-docker-compose logs -f
-```
-
-4. 停止服务：
-```bash
-docker-compose down
-```
-
-5. 访问应用：
 打开浏览器访问 `http://localhost:8080`
 
 ## 使用说明
