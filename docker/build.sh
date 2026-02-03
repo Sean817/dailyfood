@@ -35,7 +35,11 @@ if [ $? -eq 0 ]; then
     echo "  docker-compose up -d"
     echo ""
     echo "查看日志:"
-    echo "  docker-compose logs -f"
+    echo "  docker-compose logs -f app"
+    echo ""
+    echo "访问应用:"
+    echo "  前端: http://localhost:8080"
+    echo "  后端 API: http://localhost:3001"
 else
     echo ""
     echo "❌ 构建失败"
