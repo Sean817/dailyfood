@@ -10,9 +10,9 @@ import { Login } from './components/Login';
 import { AccountManager } from './components/AccountManager';
 import { BloodSugarForm } from './components/BloodSugarForm';
 import { BloodSugarList } from './components/BloodSugarList';
-import { loadFoodItems, saveFoodItems, deleteFoodItem } from './utils/storage';
+import { loadFoodItems, addFoodItem, deleteFoodItem } from './utils/storage';
 import { calculateDailyNutrition } from './utils/nutrition';
-import { checkAuth, logout, AuthState } from './utils/auth';
+import { checkAuth, checkAuthSync, logout, AuthState } from './utils/auth';
 import { loadBloodSugarRecords, addBloodSugarRecord, deleteBloodSugarRecord, updateBloodSugarRecord } from './utils/bloodSugarStorage';
 
 function App() {
@@ -28,32 +28,79 @@ function App() {
   const [authState, setAuthState] = useState<AuthState>({ isAuthenticated: false, username: null });
 
   useEffect(() => {
-    // 加载本地存储的数据
-    const items = loadFoodItems();
-    setFoodItems(items);
-    const records = loadBloodSugarRecords();
-    setBloodSugarRecords(records);
-    // 检查登录状态
-    const auth = checkAuth();
-    setAuthState(auth);
-    // 未登录时会在渲染时自动显示登录界面
+    // 初始化：先使用同步检查（不进行 API 调用）
+    const authSync = checkAuthSync();
+    setAuthState(authSync);
+
+    // 异步加载数据和验证认证
+    async function loadData() {
+      try {
+        // 验证认证状态
+        const auth = await checkAuth();
+        setAuthState(auth);
+
+        if (auth.isAuthenticated) {
+          // 加载数据
+          const items = await loadFoodItems(selectedDate);
+          setFoodItems(items);
+          const records = await loadBloodSugarRecords(selectedDate);
+          setBloodSugarRecords(records);
+        }
+      } catch (error) {
+        console.error('加载数据失败:', error);
+        // 如果认证失败，清除状态
+        setAuthState({ isAuthenticated: false, username: null });
+      }
+    }
+
+    loadData();
   }, []);
 
-  const handleShowDatabaseManager = () => {
-    const auth = checkAuth();
+  // 当日期改变时重新加载数据
+  useEffect(() => {
+    if (authState.isAuthenticated) {
+      async function loadDataForDate() {
+        try {
+          const items = await loadFoodItems(selectedDate);
+          setFoodItems(items);
+          const records = await loadBloodSugarRecords(selectedDate);
+          setBloodSugarRecords(records);
+        } catch (error) {
+          console.error('加载数据失败:', error);
+        }
+      }
+      loadDataForDate();
+    }
+  }, [selectedDate, authState.isAuthenticated]);
+
+  const handleShowDatabaseManager = async () => {
+    const auth = await checkAuth();
     if (auth.isAuthenticated) {
       setShowDatabaseManager(true);
     }
     // 如果未登录，登录界面会自动显示（通过渲染逻辑）
   };
 
-  const handleLoginSuccess = () => {
-    const auth = checkAuth();
+  const handleLoginSuccess = async () => {
+    const auth = await checkAuth();
     setAuthState(auth);
+    // 登录成功后加载数据
+    if (auth.isAuthenticated) {
+      try {
+        const items = await loadFoodItems(selectedDate);
+        setFoodItems(items);
+        const records = await loadBloodSugarRecords(selectedDate);
+        setBloodSugarRecords(records);
+      } catch (error) {
+        console.error('加载数据失败:', error);
+      }
+    }
   };
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
+    setFoodItems([]);
+    setBloodSugarRecords([]);
     setAuthState({ isAuthenticated: false, username: null });
     if (showDatabaseManager) {
       setShowDatabaseManager(false);
@@ -64,42 +111,61 @@ function App() {
     // 登出后会自动显示登录界面（通过渲染逻辑）
   };
 
-  const handleAddFood = (item: FoodItem) => {
-    const newItems = [...foodItems, item];
-    setFoodItems(newItems);
-    saveFoodItems(newItems);
-  };
-
-  const handleDeleteFood = (id: string) => {
-    const newItems = foodItems.filter((item) => item.id !== id);
-    setFoodItems(newItems);
-    deleteFoodItem(id);
-  };
-
-  const handleAddBloodSugar = (record: BloodSugarRecord) => {
-    // 检查是否已存在相同日期和类型的记录
-    const existingIndex = bloodSugarRecords.findIndex(
-      (r) => r.date === record.date && r.type === record.type
-    );
-
-    if (existingIndex >= 0) {
-      // 更新已有记录
-      const newRecords = [...bloodSugarRecords];
-      newRecords[existingIndex] = record;
-      setBloodSugarRecords(newRecords);
-      updateBloodSugarRecord(record);
-    } else {
-      // 添加新记录
-      const newRecords = [...bloodSugarRecords, record];
-      setBloodSugarRecords(newRecords);
-      addBloodSugarRecord(record);
+  const handleAddFood = async (item: FoodItem) => {
+    try {
+      await addFoodItem(item);
+      // 重新加载当前日期的数据
+      const items = await loadFoodItems(selectedDate);
+      setFoodItems(items);
+    } catch (error) {
+      console.error('添加食物失败:', error);
+      alert('添加食物失败，请重试');
     }
   };
 
-  const handleDeleteBloodSugar = (id: string) => {
-    const newRecords = bloodSugarRecords.filter((record) => record.id !== id);
-    setBloodSugarRecords(newRecords);
-    deleteBloodSugarRecord(id);
+  const handleDeleteFood = async (id: string) => {
+    try {
+      await deleteFoodItem(id);
+      const newItems = foodItems.filter((item) => item.id !== id);
+      setFoodItems(newItems);
+    } catch (error) {
+      console.error('删除食物失败:', error);
+      alert('删除食物失败，请重试');
+    }
+  };
+
+  const handleAddBloodSugar = async (record: BloodSugarRecord) => {
+    try {
+      // 检查是否已存在相同日期和类型的记录
+      const existingIndex = bloodSugarRecords.findIndex(
+        (r) => r.date === record.date && r.type === record.type
+      );
+
+      if (existingIndex >= 0) {
+        // 更新已有记录
+        await updateBloodSugarRecord(record);
+      } else {
+        // 添加新记录
+        await addBloodSugarRecord(record);
+      }
+      // 重新加载当前日期的数据
+      const records = await loadBloodSugarRecords(selectedDate);
+      setBloodSugarRecords(records);
+    } catch (error) {
+      console.error('保存血糖记录失败:', error);
+      alert('保存血糖记录失败，请重试');
+    }
+  };
+
+  const handleDeleteBloodSugar = async (id: string) => {
+    try {
+      await deleteBloodSugarRecord(id);
+      const newRecords = bloodSugarRecords.filter((record) => record.id !== id);
+      setBloodSugarRecords(newRecords);
+    } catch (error) {
+      console.error('删除血糖记录失败:', error);
+      alert('删除血糖记录失败，请重试');
+    }
   };
 
   const dailyNutrition = calculateDailyNutrition(foodItems, selectedDate);
@@ -124,14 +190,14 @@ function App() {
             foodItems={foodItems}
           />
 
-          <div className="container mx-auto px-4 py-8 max-w-6xl">
+          <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-8 max-w-6xl">
         {/* 头部说明 */}
-        <header className="text-center mb-8">
-          <p className="text-gray-600">记录每日饮食，科学管理营养摄入</p>
+        <header className="text-center mb-4 sm:mb-8">
+          <p className="text-sm sm:text-base text-gray-600">记录每日饮食，科学管理营养摄入</p>
         </header>
 
         {/* 主要内容区域 */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-4 sm:mb-6">
           {/* 左侧：表单区域 */}
           <div className="space-y-6">
             {/* 添加食物表单 */}
@@ -168,7 +234,7 @@ function App() {
         </div>
 
             {/* 页脚 */}
-            <footer className="mt-8 text-center text-gray-500 text-sm">
+            <footer className="mt-4 sm:mt-8 text-center text-gray-500 text-xs sm:text-sm px-2">
               <p>💡 提示：本应用仅供参考，具体营养需求请咨询专业医生</p>
             </footer>
           </div>

@@ -1,117 +1,123 @@
-const STORAGE_KEY = 'dailyfood_auth';
-const PASSWORD_STORAGE_KEY = 'dailyfood_password';
-const ADMIN_USERNAME = '高蛋白';
-const DEFAULT_PASSWORD = 'tshhw';
+import { authApi, getToken, setToken, removeToken } from './api';
 
 export interface AuthState {
   isAuthenticated: boolean;
   username: string | null;
 }
 
+let currentUser: { id: number; username: string; isAdmin: boolean } | null = null;
+
 // 检查是否已登录
-export function checkAuth(): AuthState {
-  try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    if (data) {
-      const auth = JSON.parse(data);
-      // 验证token是否有效（简单的时间戳验证，24小时有效）
-      if (auth.token && Date.now() - auth.timestamp < 24 * 60 * 60 * 1000) {
-        return {
-          isAuthenticated: true,
-          username: auth.username,
-        };
-      }
-    }
-  } catch (error) {
-    console.error('检查认证状态失败:', error);
+export async function checkAuth(): Promise<AuthState> {
+  const token = getToken();
+  
+  if (!token) {
+    return {
+      isAuthenticated: false,
+      username: null,
+    };
   }
+
+  try {
+    // 验证 token 是否有效
+    const user = await authApi.getMe();
+    currentUser = user;
+    return {
+      isAuthenticated: true,
+      username: user.username,
+    };
+  } catch (error) {
+    // Token 无效，清除
+    removeToken();
+    currentUser = null;
+    return {
+      isAuthenticated: false,
+      username: null,
+    };
+  }
+}
+
+// 同步检查（用于初始化，不进行 API 调用）
+export function checkAuthSync(): AuthState {
+  const token = getToken();
   return {
-    isAuthenticated: false,
-    username: null,
+    isAuthenticated: !!token,
+    username: currentUser?.username || null,
   };
 }
 
-// 获取当前密码
-function getCurrentPassword(): string {
-  try {
-    const savedPassword = localStorage.getItem(PASSWORD_STORAGE_KEY);
-    return savedPassword || DEFAULT_PASSWORD;
-  } catch (error) {
-    return DEFAULT_PASSWORD;
-  }
-}
-
 // 登录
-export function login(username: string, password: string): boolean {
-  const currentPassword = getCurrentPassword();
-  if (username === ADMIN_USERNAME && password === currentPassword) {
-    const auth = {
-      username: ADMIN_USERNAME,
-      token: generateToken(),
-      timestamp: Date.now(),
+export async function login(username: string, password: string): Promise<{ success: boolean; message?: string }> {
+  try {
+    const response = await authApi.login(username, password);
+    setToken(response.token);
+    currentUser = response.user;
+    return { success: true };
+  } catch (error: any) {
+    return {
+      success: false,
+      message: error.message || '登录失败',
     };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(auth));
-    return true;
   }
-  return false;
 }
 
 // 修改密码
-export function changePassword(oldPassword: string, newPassword: string): { success: boolean; message: string } {
-  const currentPassword = getCurrentPassword();
-  
-  if (oldPassword !== currentPassword) {
-    return { success: false, message: '原密码错误' };
-  }
-  
-  if (!newPassword || newPassword.length < 4) {
-    return { success: false, message: '新密码长度至少4位' };
-  }
-  
+export async function changePassword(
+  oldPassword: string,
+  newPassword: string
+): Promise<{ success: boolean; message: string }> {
   try {
-    localStorage.setItem(PASSWORD_STORAGE_KEY, newPassword);
+    await authApi.changePassword(oldPassword, newPassword);
     // 修改密码后需要重新登录
     logout();
     return { success: true, message: '密码修改成功，请重新登录' };
-  } catch (error) {
-    return { success: false, message: '密码修改失败' };
+  } catch (error: any) {
+    return {
+      success: false,
+      message: error.message || '密码修改失败',
+    };
   }
 }
 
 // 获取账号信息
-export function getAccountInfo(): { username: string; loginTime: string | null } {
+export async function getAccountInfo(): Promise<{ username: string; loginTime: string | null }> {
   try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    if (data) {
-      const auth = JSON.parse(data);
-      const loginTime = auth.timestamp ? new Date(auth.timestamp).toLocaleString('zh-CN') : null;
-      return {
-        username: auth.username || ADMIN_USERNAME,
-        loginTime,
-      };
+    if (!currentUser) {
+      const user = await authApi.getMe();
+      currentUser = user;
     }
+    
+    return {
+      username: currentUser.username,
+      loginTime: new Date().toLocaleString('zh-CN'), // 可以从 token 中解析，这里简化处理
+    };
   } catch (error) {
     console.error('获取账号信息失败:', error);
+    return {
+      username: '未知',
+      loginTime: null,
+    };
   }
-  return {
-    username: ADMIN_USERNAME,
-    loginTime: null,
-  };
 }
 
 // 登出
-export function logout(): void {
-  localStorage.removeItem(STORAGE_KEY);
-}
-
-// 生成简单token
-function generateToken(): string {
-  return Math.random().toString(36).substring(2) + Date.now().toString(36);
+export async function logout(): Promise<void> {
+  try {
+    await authApi.logout();
+  } catch (error) {
+    // 忽略登出错误
+  } finally {
+    removeToken();
+    currentUser = null;
+  }
 }
 
 // 检查是否为管理员
 export function isAdmin(): boolean {
-  const auth = checkAuth();
-  return auth.isAuthenticated && auth.username === ADMIN_USERNAME;
+  return currentUser?.isAdmin || false;
 }
 
+// 获取当前用户信息
+export function getCurrentUser() {
+  return currentUser;
+}

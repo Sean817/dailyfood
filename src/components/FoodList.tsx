@@ -55,18 +55,19 @@ export function FoodList({ items, selectedDate, onDelete, bloodSugarRecords = []
   };
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-md">
-      <h2 className="text-xl font-bold mb-4 text-gray-800">
-        🍽️ {formatDate(selectedDate)} 食物记录
+    <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
+      <h2 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4 text-gray-800">
+        <span className="hidden sm:inline">🍽️ {formatDate(selectedDate)} 食物记录</span>
+        <span className="sm:hidden">🍽️ 食物记录</span>
       </h2>
 
       {dayItems.length === 0 ? (
-        <div className="text-center text-gray-500 py-8">
-          <p>今天还没有记录任何食物</p>
+        <div className="text-center text-gray-500 py-6 sm:py-8">
+          <p className="text-sm sm:text-base">今天还没有记录任何食物</p>
         </div>
       ) : (
 
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {(['breakfast', 'lunch', 'dinner', 'snack'] as const).map((mealType) => {
             const mealItems = groupedByMeal[mealType] || [];
             if (mealItems.length === 0) return null;
@@ -75,12 +76,12 @@ export function FoodList({ items, selectedDate, onDelete, bloodSugarRecords = []
 
             return (
               <div key={mealType}>
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-lg font-semibold text-gray-700">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2 gap-1 sm:gap-0">
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-700">
                     {mealTypeLabels[mealType]}
                   </h3>
                   {bloodSugarRecord && (
-                    <div className="flex items-center space-x-2 text-sm">
+                    <div className="flex items-center space-x-2 text-xs sm:text-sm">
                       <span className="text-gray-600">餐后2h血糖：</span>
                       <span className={`font-bold ${
                         bloodSugarRecord.value < 7.8 ? 'text-green-600' : 'text-red-600'
@@ -94,22 +95,22 @@ export function FoodList({ items, selectedDate, onDelete, bloodSugarRecords = []
                   {mealItems.map((item) => (
                     <div
                       key={item.id}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                      className="flex items-center justify-between p-2.5 sm:p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                     >
-                      <div className="flex-1">
-                        <div className="font-medium text-gray-800">{item.name}</div>
-                        <div className="text-sm text-gray-500">
+                      <div className="flex-1 min-w-0 pr-2">
+                        <div className="font-medium text-sm sm:text-base text-gray-800 truncate">{item.name}</div>
+                        <div className="text-xs sm:text-sm text-gray-500">
                           {item.amount}g · {item.category}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
                         <button
                           onClick={() => setSelectedFood(item)}
-                          className="text-blue-500 hover:text-blue-700 transition-colors"
+                          className="text-blue-500 hover:text-blue-700 transition-colors p-1"
                           title="查看详情"
                         >
                           <svg
-                            className="w-5 h-5"
+                            className="w-4 h-4 sm:w-5 sm:h-5"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
@@ -124,11 +125,11 @@ export function FoodList({ items, selectedDate, onDelete, bloodSugarRecords = []
                         </button>
                         <button
                           onClick={() => onDelete(item.id)}
-                          className="text-red-500 hover:text-red-700 transition-colors"
+                          className="text-red-500 hover:text-red-700 transition-colors p-1"
                           title="删除"
                         >
                           <svg
-                            className="w-5 h-5"
+                            className="w-4 h-4 sm:w-5 sm:h-5"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"

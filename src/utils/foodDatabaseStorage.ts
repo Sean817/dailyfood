@@ -1,36 +1,94 @@
 import { FoodDatabaseItem } from '../types';
-import { foodDatabase as defaultFoodDatabase, clearFoodDatabaseCache } from '../data/foodDatabase';
+import { foodDatabase as defaultFoodDatabase } from '../data/foodDatabase';
+import { foodDatabaseApi } from './api';
 
-const STORAGE_KEY = 'dailyfood_database';
-
-// 从本地存储加载食物数据库
-export function loadFoodDatabase(): FoodDatabaseItem[] {
+// 从服务器加载食物数据库（全局共享）
+export async function loadFoodDatabase(): Promise<FoodDatabaseItem[]> {
   try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    if (data) {
-      return JSON.parse(data);
+    const database = await foodDatabaseApi.getFoodDatabase();
+    if (database && database.length > 0) {
+      return database;
     }
-    // 如果没有本地数据，返回默认数据库
+    // 如果服务器数据库为空，返回默认数据库
     return defaultFoodDatabase;
   } catch (error) {
     console.error('加载食物数据库失败:', error);
+    // 网络错误时返回默认数据库
     return defaultFoodDatabase;
   }
 }
 
-// 保存食物数据库到本地存储
-export function saveFoodDatabase(database: FoodDatabaseItem[]): void {
+// 同步加载（用于初始化，返回默认数据库）
+export function loadFoodDatabaseSync(): FoodDatabaseItem[] {
+  return defaultFoodDatabase;
+}
+
+// 保存食物数据库到服务器（仅管理员）
+export async function saveFoodDatabase(database: FoodDatabaseItem[]): Promise<void> {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(database));
-    clearFoodDatabaseCache(); // 清除缓存
+    // 这里可以添加批量保存接口，或者逐个保存
+    // 简化处理：只保存新增或修改的食物
+    for (const item of database) {
+      try {
+        await foodDatabaseApi.addFood({
+          name: item.name,
+          category: item.category,
+          nutritionPer100g: item.nutritionPer100g,
+        });
+      } catch (error: any) {
+        // 如果食物已存在，尝试更新
+        if (error.message?.includes('已存在')) {
+          // 需要先获取 ID，这里简化处理
+          console.log(`食物 ${item.name} 已存在，跳过`);
+        }
+      }
+    }
   } catch (error) {
     console.error('保存食物数据库失败:', error);
+    throw error;
   }
 }
 
-// 重置为默认数据库
+// 添加食物到数据库（仅管理员）
+export async function addFoodToDatabase(food: FoodDatabaseItem): Promise<void> {
+  try {
+    await foodDatabaseApi.addFood({
+      name: food.name,
+      category: food.category,
+      nutritionPer100g: food.nutritionPer100g,
+    });
+  } catch (error) {
+    console.error('添加食物失败:', error);
+    throw error;
+  }
+}
+
+// 更新食物（仅管理员）
+export async function updateFoodInDatabase(id: number, food: FoodDatabaseItem): Promise<void> {
+  try {
+    await foodDatabaseApi.updateFood(id, {
+      name: food.name,
+      category: food.category,
+      nutritionPer100g: food.nutritionPer100g,
+    });
+  } catch (error) {
+    console.error('更新食物失败:', error);
+    throw error;
+  }
+}
+
+// 删除食物（仅管理员）
+export async function deleteFoodFromDatabase(id: number): Promise<void> {
+  try {
+    await foodDatabaseApi.deleteFood(id);
+  } catch (error) {
+    console.error('删除食物失败:', error);
+    throw error;
+  }
+}
+
+// 重置为默认数据库（仅管理员）
 export function resetToDefaultDatabase(): FoodDatabaseItem[] {
-  saveFoodDatabase(defaultFoodDatabase);
   return defaultFoodDatabase;
 }
 
@@ -39,8 +97,8 @@ export function exportDatabase(database: FoodDatabaseItem[]): string {
   return JSON.stringify(database, null, 2);
 }
 
-// 导入数据库
-export function importDatabase(jsonString: string): FoodDatabaseItem[] | null {
+// 导入数据库（仅管理员）
+export async function importDatabase(jsonString: string): Promise<FoodDatabaseItem[] | null> {
   try {
     const database = JSON.parse(jsonString);
     if (Array.isArray(database) && database.length > 0) {
@@ -52,7 +110,7 @@ export function importDatabase(jsonString: string): FoodDatabaseItem[] | null {
         typeof item.nutritionPer100g.calories === 'number'
       );
       if (isValid) {
-        saveFoodDatabase(database);
+        await saveFoodDatabase(database);
         return database;
       }
     }
@@ -62,4 +120,3 @@ export function importDatabase(jsonString: string): FoodDatabaseItem[] | null {
     return null;
   }
 }
-

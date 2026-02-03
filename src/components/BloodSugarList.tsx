@@ -62,19 +62,20 @@ export function BloodSugarList({ records, selectedDate, onDelete }: BloodSugarLi
 
   if (dayRecords.length === 0) {
     return (
-      <div className="bg-white p-6 rounded-lg shadow-md text-center text-gray-500">
-        <p>今天还没有记录血糖</p>
+      <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md text-center text-gray-500">
+        <p className="text-sm sm:text-base">今天还没有记录血糖</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-md">
-      <h2 className="text-xl font-bold mb-4 text-gray-800">
-        📊 {formatDate(selectedDate)} 血糖记录
+    <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
+      <h2 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4 text-gray-800">
+        <span className="hidden sm:inline">📊 {formatDate(selectedDate)} 血糖记录</span>
+        <span className="sm:hidden">📊 血糖记录</span>
       </h2>
 
-      <div className="space-y-4">
+      <div className="space-y-3 sm:space-y-4">
         {/* 血糖记录列表 */}
         {(['fasting', 'after_breakfast', 'after_lunch', 'after_dinner'] as const).map((type) => {
           const record = groupedByType[type];
@@ -85,43 +86,45 @@ export function BloodSugarList({ records, selectedDate, onDelete }: BloodSugarLi
           return (
             <div
               key={record.id}
-              className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+              className="flex items-start sm:items-center justify-between p-3 sm:p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
             >
-              <div className="flex-1">
-                <div className="flex items-center space-x-3">
-                  <span className="font-medium text-gray-800">{typeLabels[type]}</span>
-                  <span className={`text-2xl font-bold ${
-                    status.status === 'normal' ? 'text-green-600' :
-                    status.status === 'high' ? 'text-red-600' :
-                    'text-orange-600'
-                  }`}>
-                    {record.value} mmol/L
-                  </span>
-                  <span className={`px-2 py-1 text-xs rounded ${
-                    status.status === 'normal' ? 'bg-green-100 text-green-700' :
-                    status.status === 'high' ? 'bg-red-100 text-red-700' :
-                    'bg-orange-100 text-orange-700'
-                  }`}>
-                    {status.label}
-                  </span>
+              <div className="flex-1 min-w-0 pr-2">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                  <span className="font-medium text-sm sm:text-base text-gray-800">{typeLabels[type]}</span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`text-xl sm:text-2xl font-bold ${
+                      status.status === 'normal' ? 'text-green-600' :
+                      status.status === 'high' ? 'text-red-600' :
+                      'text-orange-600'
+                    }`}>
+                      {record.value} mmol/L
+                    </span>
+                    <span className={`px-2 py-1 text-xs rounded ${
+                      status.status === 'normal' ? 'bg-green-100 text-green-700' :
+                      status.status === 'high' ? 'bg-red-100 text-red-700' :
+                      'bg-orange-100 text-orange-700'
+                    }`}>
+                      {status.label}
+                    </span>
+                  </div>
                 </div>
-                <div className="text-sm text-gray-500 mt-1">
+                <div className="text-xs sm:text-sm text-gray-500 mt-1.5 sm:mt-1">
                   {record.mealType && (
-                    <span className="inline-block px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs mr-2">
+                    <span className="inline-block px-1.5 sm:px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs mr-2">
                       🍽️ {mealTypeLabels[record.mealType]}
                     </span>
                   )}
-                  {record.time && `测量时间：${record.time}`}
-                  {record.note && ` · ${record.note}`}
+                  {record.time && <span>测量时间：{record.time}</span>}
+                  {record.note && <span className="ml-1 sm:ml-0 sm:before:content-['·'] sm:before:mx-1">{record.note}</span>}
                 </div>
               </div>
               <button
                 onClick={() => onDelete(record.id)}
-                className="ml-4 text-red-500 hover:text-red-700 transition-colors"
+                className="ml-2 sm:ml-4 text-red-500 hover:text-red-700 transition-colors p-1 flex-shrink-0"
                 title="删除"
               >
                 <svg
-                  className="w-5 h-5"
+                  className="w-4 h-4 sm:w-5 sm:h-5"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -139,9 +142,9 @@ export function BloodSugarList({ records, selectedDate, onDelete }: BloodSugarLi
         })}
 
         {/* 血糖参考范围 */}
-        <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-          <h3 className="font-semibold text-gray-800 mb-2">📋 血糖参考范围</h3>
-          <ul className="text-sm text-gray-700 space-y-1">
+        <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-blue-50 rounded-lg">
+          <h3 className="font-semibold text-sm sm:text-base text-gray-800 mb-1.5 sm:mb-2">📋 血糖参考范围</h3>
+          <ul className="text-xs sm:text-sm text-gray-700 space-y-1">
             <li>• <strong>空腹血糖：</strong>3.9-5.6 mmol/L（正常）</li>
             <li>• <strong>餐后2h血糖：</strong>&lt;7.8 mmol/L（正常）</li>
             <li>• 孕妇血糖控制目标可能因个人情况而异，请咨询医生</li>

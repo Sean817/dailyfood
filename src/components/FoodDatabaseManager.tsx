@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { FoodDatabaseItem, NutritionInfo } from '../types';
 import { loadFoodDatabase, saveFoodDatabase, resetToDefaultDatabase, exportDatabase, importDatabase } from '../utils/foodDatabaseStorage';
+import { foodDatabase as defaultFoodDatabase } from '../data/foodDatabase';
 
 interface FoodDatabaseManagerProps {
   onClose: () => void;
@@ -20,12 +21,18 @@ export function FoodDatabaseManager({ onClose, onDatabaseChange }: FoodDatabaseM
     loadFoods();
   }, []);
 
-  const loadFoods = () => {
-    const database = loadFoodDatabase();
-    setFoods(database);
+  const loadFoods = async () => {
+    try {
+      const database = await loadFoodDatabase();
+      setFoods(database);
+    } catch (error) {
+      console.error('加载食物数据库失败:', error);
+      // 如果加载失败，使用默认数据库
+      setFoods(defaultFoodDatabase);
+    }
   };
 
-  const handleAdd = (food: FoodDatabaseItem) => {
+  const handleAdd = async (food: FoodDatabaseItem) => {
     // 检查是否已存在同名食物
     if (foods.some(f => f.name.toLowerCase() === food.name.toLowerCase())) {
       alert('该食物已存在！');
@@ -33,27 +40,42 @@ export function FoodDatabaseManager({ onClose, onDatabaseChange }: FoodDatabaseM
     }
     const newFoods = [...foods, food];
     setFoods(newFoods);
-    saveFoodDatabase(newFoods);
-    setShowAddForm(false);
-    onDatabaseChange();
+    try {
+      await saveFoodDatabase(newFoods);
+      setShowAddForm(false);
+      onDatabaseChange();
+    } catch (error) {
+      console.error('保存食物失败:', error);
+      alert('保存失败，请重试');
+    }
   };
 
-  const handleUpdate = (updatedFood: FoodDatabaseItem, oldName: string) => {
+  const handleUpdate = async (updatedFood: FoodDatabaseItem, oldName: string) => {
     const newFoods = foods.map(f => 
       f.name === oldName ? updatedFood : f
     );
     setFoods(newFoods);
-    saveFoodDatabase(newFoods);
-    setEditingFood(null);
-    onDatabaseChange();
+    try {
+      await saveFoodDatabase(newFoods);
+      setEditingFood(null);
+      onDatabaseChange();
+    } catch (error) {
+      console.error('更新食物失败:', error);
+      alert('更新失败，请重试');
+    }
   };
 
-  const handleDelete = (name: string) => {
+  const handleDelete = async (name: string) => {
     if (confirm(`确定要删除"${name}"吗？`)) {
       const newFoods = foods.filter(f => f.name !== name);
       setFoods(newFoods);
-      saveFoodDatabase(newFoods);
-      onDatabaseChange();
+      try {
+        await saveFoodDatabase(newFoods);
+        onDatabaseChange();
+      } catch (error) {
+        console.error('删除食物失败:', error);
+        alert('删除失败，请重试');
+      }
     }
   };
 
@@ -76,15 +98,20 @@ export function FoodDatabaseManager({ onClose, onDatabaseChange }: FoodDatabaseM
     URL.revokeObjectURL(url);
   };
 
-  const handleImport = () => {
-    const imported = importDatabase(importText);
-    if (imported) {
-      setFoods(imported);
-      setShowImportModal(false);
-      setImportText('');
-      onDatabaseChange();
-      alert('导入成功！');
-    } else {
+  const handleImport = async () => {
+    try {
+      const imported = await importDatabase(importText);
+      if (imported) {
+        setFoods(imported);
+        setShowImportModal(false);
+        setImportText('');
+        onDatabaseChange();
+        alert('导入成功！');
+      } else {
+        alert('导入失败！请检查JSON格式是否正确。');
+      }
+    } catch (error) {
+      console.error('导入失败:', error);
       alert('导入失败！请检查JSON格式是否正确。');
     }
   };
@@ -192,17 +219,25 @@ export function FoodDatabaseManager({ onClose, onDatabaseChange }: FoodDatabaseM
             </div>
 
             {/* 分类筛选 */}
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
-              style={{ color: '#111827' }}
-            >
-              <option value="全部">全部分类</option>
-              {categories.map(cat => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </select>
+            <div className="relative">
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900 appearance-none cursor-pointer"
+                style={{ color: '#111827' }}
+              >
+                <option value="全部">全部分类</option>
+                {categories.map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+              {/* 下拉箭头图标 */}
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </div>
           </div>
 
           {/* 操作按钮 */}
@@ -367,20 +402,26 @@ function FoodEditForm({ food, onSave, onCancel }: FoodEditFormProps) {
                 required
               />
             </div>
-            <div>
+            <div className="relative">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 分类 *
               </label>
               <select
                 value={formData.category}
                 onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
+                className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900 appearance-none cursor-pointer"
                 style={{ color: '#111827' }}
               >
                 {categories.map(cat => (
                   <option key={cat} value={cat}>{cat}</option>
                 ))}
               </select>
+              {/* 下拉箭头图标 */}
+              <div className="absolute right-3 top-[2.5rem] bottom-2 flex items-center pointer-events-none">
+                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
             </div>
           </div>
 
